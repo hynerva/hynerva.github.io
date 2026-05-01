@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
+  />
+  <title>Hynerva Barcode Parser</title>
+</head>
+
+<body style="margin: 0">
+  <button id="start-scanning">Start scanning</button>
+  <p id="result"></p>
+
+  <script type="module">
+    import "https://cdn.jsdelivr.net/npm/scanbot-web-sdk@7.0.0/bundle/ScanbotSDK.ui2.min.js";
+
+    const resultBox = document.getElementById("result");
+    const wasmPath =
+      "https://cdn.jsdelivr.net/npm/scanbot-web-sdk@7.0.0/bundle/bin";
+
+    const sdk = await ScanbotSDK.initialize({
+      enginePath: `${wasmPath}/barcode-scanner/`,
+    });
+
+    document.getElementById("start-scanning").onclick = async () => {
+      const config =
+        new ScanbotSDK.UI.Config.BarcodeScannerScreenConfiguration();
+
+      config.scannerConfiguration.barcodeFormats = ["PDF_417"];
+      config.viewFinder.aspectRatio.height = 1;
+      config.viewFinder.aspectRatio.width = 3;
+
+      const scanResult =
+        await ScanbotSDK.UI.createBarcodeScanner(config);
+
+      if (!scanResult?.items?.length) {
+        resultBox.innerText = "Scanning aborted by the user";
+        return;
+      }
+
+      const barcode = scanResult.items[0].barcode;
+      const extractedDocument = barcode.extractedDocument;
+
+      const extractDocumentFields = (document) => {
+        const fields = [];
+
+        const processFields = (input) => {
+          if (!Array.isArray(input)) return;
+
+          input.forEach((field) => {
+            if (field.type?.name && field.value?.text) {
+              fields.push(field);
+            }
+          });
+        };
+
+        processFields(document.fields);
+
+        if (Array.isArray(document.children)) {
+          document.children.forEach((child) => {
+            processFields(child.fields);
+          });
+        }
+
+        return fields;
+      };
+
+      const documentResult =
+        extractDocumentFields(extractedDocument);
+
+      resultBox.innerText = documentResult
+        .map(
+          (field) => `${field.type.name}: ${field.value.text}`
+        )
+        .join("\n");
+    };
+  </script>
+</body>
+</html>
